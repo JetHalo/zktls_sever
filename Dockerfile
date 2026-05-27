@@ -52,6 +52,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /build/tlsn-extension/servers/target/release/tlsn-verifier-server /app/tlsn-verifier-server
 COPY config.yaml /app/config.yaml
 
+# Crank up tracing inside the tlsn library so we can see exactly which step of
+# the MPC handshake (Verifier::accept -> deps.setup -> ...) hangs.
+# Default crates stay at warn to keep volume manageable.
+ENV RUST_LOG=warn,tlsn=trace,tlsn_core=trace,mpc_tls=trace,mpz=debug,tlsn_verifier_server=debug
+
 # tlsn-verifier-server hardcodes its bind address to 0.0.0.0:7047
 # (upstream README: "configuration is currently hardcoded in main.rs").
 # Railway terminates TLS at its edge proxy, so we serve plain HTTP/WS here.

@@ -1,17 +1,19 @@
-# Railway configuration for VerifyTrade Notary Server
+# Railway configuration for VerifyTrade Verifier Server
 #
-# Reference: https://docs.railway.app/reference/config-as-code
+# The Dockerfile produces a tlsn-verifier-server binary listening on 0.0.0.0:7047.
+# Railway terminates TLS at its edge and reverse-proxies to that port.
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "./Dockerfile"
 
 [deploy]
-startCommand = "/usr/local/bin/notary-server --config-file /app/config/config.yaml"
-healthcheckPath = "/info"
+startCommand = "/app/tlsn-verifier-server"
+healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
-# Single replica is fine for workshop (one user per notary).
+# One replica per workshop demo. Each user with their own Railway project gets
+# their own verifier instance -- no shared state across users.
 numReplicas = 1

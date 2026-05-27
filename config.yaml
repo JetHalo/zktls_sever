@@ -1,0 +1,21 @@
+# VerifyTrade Verifier Server config
+#
+# Schema mirrors tlsn-extension/servers/verifier/config-prod.yaml.
+# The only configurable surface today is webhook delivery: when a verification
+# session completes successfully, the verifier can POST the resulting
+# presentation to a backend URL keyed by the TLS server_name it was talking to.
+#
+# VerifyTrade does not need webhooks -- the prover (in-browser plugin) keeps
+# the presentation locally and submits it to our Next.js API directly. So this
+# config is intentionally empty.
+#
+# If you ever want to push presentations server-side (e.g. directly into the
+# leaderboard DB), uncomment a webhooks entry like:
+#
+#   webhooks:
+#     "fapi.binance.com":
+#       url: "https://verifytrade.example.com/api/webhook/binance"
+#       headers:
+#         Authorization: "Bearer <shared-secret>"
+
+webhooks: {}

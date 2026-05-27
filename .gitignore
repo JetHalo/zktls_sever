@@ -1,3 +1,10 @@
+# Leftover from the old notary-server era (ECDSA P-256 signing key). The new
+# verifier-server does not need a long-lived signing key, so these patterns are
+# kept purely defensively: if anyone accidentally drops a `.key` or `.pem` into
+# this repo during testing, git won't pick it up.
 keys/
 *.key
 *.pem
+
+# Local build artifacts (only relevant if you `docker build` here)
+target/

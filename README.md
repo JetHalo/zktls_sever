@@ -1,66 +1,90 @@
-# Notary Server
+# VerifyTrade Verifier Server
 
-TLSNotary notary server, configured for one-click Railway deployment.
+`tlsn-verifier-server` (TLSNotary alpha.15), packaged for one-click Railway
+deploy. This is the 2-party MPC counterpart that the in-browser TLSNotary
+plugin talks to when notarizing a Binance Futures session.
 
-## What this does
+## What changed vs the old notary-server
 
-Runs the [TLSNotary](https://github.com/tlsnotary/tlsn) notary server, which co-signs TLS sessions in MPC with the Prover. Each user in the VerifyTrade workshop deploys their own notary so they fully own their ZK-TLS infrastructure.
+PSE removed `crates/notary/server` from the `tlsnotary/tlsn` workspace at
+v0.1.0-alpha.13. The replacement is `tlsn-verifier-server` in the
+`tlsnotary/tlsn-extension` repo under `servers/verifier/`. The wire protocol
+is still MPC-TLS; the trust model shifted from "notary signs an attestation
+that anyone can later verify offline" to "the verifier participates in the
+MPC session and emits a presentation directly". The browser extension at
+version `0.1.0.14xx` / `0.1.0.15xx` only talks to a verifier-server, not the
+old notary-server.
 
-## Deploy to Railway (3 minutes)
+## Deploy to Railway
 
-1. Fork this repo (or the parent `veirfytrade` repo) to your own GitHub account
-2. Sign in to [Railway](https://railway.app) (free trial gives $5 credit, more than enough for the workshop)
-3. Click `New Project → Deploy from GitHub repo → veirfytrade`
-4. In project settings, set **Root Directory** to `notary-server`
-5. Generate a signing key locally:
-   ```bash
-   chmod +x generate-keys.sh
-   ./generate-keys.sh
-   ```
-6. In Railway, add an environment variable `NOTARY_SIGNING_KEY_PEM` with the contents of `keys/notary.key`
-7. Railway will auto-build the Dockerfile, deploy, and give you a public URL like `https://verifytrade-notary-production.up.railway.app`
+1. Push this repo to GitHub.
+2. Sign in to [Railway](https://railway.app).
+3. `New Project → Deploy from GitHub repo → zktls_sever`.
+4. Railway picks up `Dockerfile` + `railway.toml` automatically.
+5. First build takes ~5-10 minutes (full Rust compile from source).
+6. Once deployed, copy the public URL (looks like
+   `verifytrade-verifier-production.up.railway.app`).
 
-## Connect from the Prover CLI
+No env vars, no signing key, no secret material needed. The verifier model
+does not use a long-lived ECDSA key.
+
+## Connect from the browser plugin
+
+Inside `veirfytrade/plugin/`:
 
 ```bash
-veirfytrade-prover \
-  --notary  wss://verifytrade-notary-production.up.railway.app \
-  --notary-pubkey ./keys/notary.pub \
-  ...
+VERIFIER_URL="https://<your-railway-url>"  \
+PROXY_URL="wss://<your-railway-url>/proxy?token="  \
+node esbuild.js
 ```
+
+The plugin's `prove()` call will then open a WebSocket to
+`<verifier-url>/session` to begin the MPC handshake.
 
 ## Local testing
 
 ```bash
-docker build -t verifytrade-notary .
-./generate-keys.sh
-docker run -p 7047:7047 \
-  -v "$(pwd)/keys:/app/keys" \
-  verifytrade-notary
+docker build -t verifytrade-verifier .
+docker run -p 7047:7047 verifytrade-verifier
+
+# In another terminal:
+curl http://localhost:7047/health
+# expect HTTP 200
 ```
 
-Test with curl:
-```bash
-curl http://localhost:7047/info
-```
+## Endpoints exposed
 
-## Configuration reference
+| Endpoint                       | Role                                                        |
+| ------------------------------ | ----------------------------------------------------------- |
+| `GET  /health`                 | Liveness check (Railway uses this).                         |
+| `WS   /session`                | Create a new verification session, returns a session id.    |
+| `WS   /verifier?sessionId=<id>` | Two-party MPC verification channel (the "other half").     |
+| `WS   /proxy?token=<host>`     | TCP relay so the browser can reach the TLS target server.   |
 
-See `notary-config.yaml`. Key knobs:
+`/proxy` is **not** a man-in-the-middle proxy; it just shuttles ciphertext
+bytes between the browser and the target. The MPC keying material is split
+across `/verifier` and the browser-side prover, so this server alone cannot
+decrypt the user's traffic.
 
-- `max_sent_data` / `max_recv_data` — limits on TLS payload size
-- `authorization.enabled` — set to `true` and add API keys for private deployment
-- `tls.enabled` — keep `false` on Railway (Railway's proxy handles TLS termination)
+## Pinning the upstream release
+
+The Dockerfile has `ARG TLSN_EXT_REF=0.1.0.1500`. To rebuild against a
+different upstream tag (e.g. when alpha.16 ships), edit that line and trigger
+a redeploy. The chrome extension version must match.
+
+| Extension tag    | tlsn protocol      |
+| ---------------- | ------------------ |
+| `0.1.0.1500`     | `v0.1.0-alpha.15`  |
+| `0.1.0.1409`     | `v0.1.0-alpha.15-pre` |
+| `0.1.0.1402`     | `v0.1.0-alpha.14`  |
 
 ## Cost on Railway
 
-- Notary uses ~256-512 MB RAM, low CPU when idle
-- ~$0.005-0.01/hour at idle
-- Free trial credit ($5) lasts roughly 3-6 weeks of continuous running
-- Hobby plan ($5/month) for permanent hosting
+Verifier idles at ~256 MB RAM, ~negligible CPU. Roughly the same as the old
+notary-server -- expect ~$0.005-0.01/hour at idle.
 
-## Reference
+## References
 
-- [TLSNotary docs](https://tlsnotary.github.io/docs-mdbook/)
-- [TLSNotary GitHub](https://github.com/tlsnotary/tlsn)
+- [tlsnotary/tlsn-extension](https://github.com/tlsnotary/tlsn-extension)
+- [Verifier README](https://github.com/tlsnotary/tlsn-extension/tree/main/servers/verifier)
 - [Railway docs](https://docs.railway.app/)

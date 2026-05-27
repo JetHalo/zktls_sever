@@ -5,9 +5,11 @@
 # Run:     docker run -p 7047:7047 verifytrade-notary
 # Railway: Railway auto-builds from this Dockerfile
 
-# Pinned to v0.1.0-alpha.14 to match prover/Cargo.toml's tlsn crate tag.
-# If you change either, update both in lockstep — wire protocol must match.
-FROM ghcr.io/tlsnotary/tlsn/notary-server:v0.1.0-alpha.14
+# Pinned to v0.1.0-alpha.12 -- the latest pre-built image on ghcr.io.
+# PSE stopped publishing notary-server images after alpha.12 (they narrowed
+# project scope to core libraries / SDK; see PSE blog Feb 2026).
+# If wire protocol drift breaks MPC, the fallback is to build from source.
+FROM ghcr.io/tlsnotary/tlsn/notary-server:v0.1.0-alpha.12
 
 WORKDIR /app
 
